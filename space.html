@@ -1,0 +1,232 @@
+﻿ <!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+      #container{
+        width: 600px;
+        height: 400px;
+        border: 1px solid;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+    <script src="http://d3lp1msu2r81bx.cloudfront.net/kjs/js/lib/kinetic-v4.7.4.min.js"></script>
+<script defer="defer">
+
+    $(function () {
+
+
+        var game = (function () {
+            var obj = {};
+
+            //TODO set private varieables
+            var stage, bullet_layer, obst_layer, ctx;
+
+            obj.createGame = function () {
+
+                stage = new Kinetic.Stage({
+                    container: 'container',
+                    width: 600,
+                    height: 400
+                });
+
+                //TODO
+                //obj.stage = stage;
+
+                
+                //TODO remove
+                var rect = new Kinetic.Rect({
+                    x: 0,
+                    y: 0,
+                    width: 1,
+                    height: 50,
+                    fill: 'green'
+                });
+
+
+                
+
+                obj.ship_length = 50;
+
+                bullet_layer = new Kinetic.Layer();
+                obst_layer = new Kinetic.Layer();
+                //obj.layer2 = layer2;
+                //layer2.add(rect);
+
+
+                var obst_arr = createStaticObstacles( 20 );
+
+                for (var i = 0; i < obst_arr.length; i++) {
+                    obst_layer.add(obst_arr[i]);
+                }
+
+                var shipImg = new Image(obj.ship_length, obj.ship_length);
+                shipImg.src = "ship.png";
+
+                shipImg.onload = function () {
+                    obj.ship = new Kinetic.Image({
+                        x: stage.getWidth() / 2,
+                        y: stage.getHeight() - obj.ship_length,
+                        image: shipImg,
+                        width: obj.ship_length,
+                        height: obj.ship_length
+
+                    });
+
+                    bullet_layer.add(obj.ship);
+                    bullet_layer.draw();
+                }
+
+                stage.add(obst_layer);
+                stage.add(bullet_layer);
+
+
+                window.onkeydown = moveShip;
+                var canvas = document.getElementsByTagName('canvas')[0];
+                ctx = canvas.getContext('2d');
+
+            }
+
+            function moveShip(ev) {
+                var ship = obj.ship;
+                var code = ev.keyCode;
+                var x;
+                switch (code) {
+                    case 37:
+                        x = ship.attrs.x;
+                        ship.setX(x - 5);
+                        bullet_layer.draw();
+                        break;
+                    case 39:
+                        x = ship.attrs.x;
+                        ship.setX(x + 5);
+                        bullet_layer.draw();
+                        break;
+                    case 38:
+                        fire();
+                        break;
+                }
+            }
+
+            function fire() {
+
+                var ship = obj.ship;
+                var x = ship.getX();
+                var y = ship.getY();
+
+                var bullet = new Kinetic.Line({
+                    points: [x + obj.ship_length / 2, y, x + obj.ship_length / 2, y - 10],
+                    stroke: 'green',
+                    strokeWidth: 5,
+                    lineCap: 'butt',
+                    lineJoin: 'round'
+                });
+
+                bullet_layer.add(bullet);
+                bullet_layer.draw();
+
+                var anim = new Kinetic.Animation(function (frame) {
+                    var y = bullet.getY();
+                    bullet.setY(y -= 2);
+                    checkCollision(bullet, this);
+                    //remove out of frame animations and bullets
+                    if (Math.abs(y) > stage.getHeight()) {
+                        this.stop();
+                        bullet.remove();
+                    }
+
+                    console.log("anim");
+                }, bullet_layer);
+
+                anim.start();
+            }
+
+            function checkCollision(bullet, anim) {
+                var data, x, y, imgData, length, height;
+
+                x = bullet.getX() + bullet.attrs.points[1].x;
+                y = bullet.getY() + bullet.attrs.points[1].y;
+                length = 5;
+                height = 1;
+
+                //position fix
+                x -= 2;
+                y += 2;
+
+                imgData = ctx.getImageData(x, y, length, height);
+                data = imgData.data;
+                //var data = getBulletImageData(bullet);
+                if (collisionCheck(data)) {
+                    anim.stop();
+                    bullet.remove();
+                    removeHitObst(x, y);
+                }
+            }
+
+            function removeHitObst(x, y) {
+                var obst_arr = obst_layer.getChildren();
+                for (var i = 0; i < obst_arr.length; i++) {
+                    if (obst_arr[i].intersects(x, y) || obst_arr[i].intersects(x + 1, y) || obst_arr[i].intersects(x + 2, y) ||
+                        obst_arr[i].intersects(x+3, y) || obst_arr[i].intersects(x+4, y)) {
+                        obst_arr[i].remove();
+                        obst_layer.draw();
+                    }
+                }
+                
+            }
+
+            function collisionCheck(data) {
+                var obstacleColor = [255, 0, 0];
+                for (var i = 0; i < data.length; i += 4) {
+                    if (data[i] === obstacleColor[0] && data[i + 1] === obstacleColor[1] && data[i + 2] === obstacleColor[2]) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            function createStaticObstacles(count) {
+                var width = 10;
+                var height = 10;
+                var obst_arr = [];
+                var st_w = stage.getWidth();
+                var st_h = stage.getHeight()
+                for (var i = 0; i < count; i++) {
+                    obst_arr[i] = new Kinetic.Rect({
+                        x: Math.abs(Math.random() * st_w - 10),
+                        y: Math.abs(Math.random() * st_h - 60),
+                        width: 10,
+                        height: 10,
+                        fill: 'red'
+                    });
+                }
+
+                return obst_arr;
+            }
+
+            return obj;
+        })();
+
+        /// line.destroy();
+        /// shape.intersects(point)
+        game.createGame();
+
+    });
+
+
+
+
+
+
+
+    </script>
+  </body>
+</html>
+   
